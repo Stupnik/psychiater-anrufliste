@@ -1,0 +1,520 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>Psychiater-Anrufliste Berlin</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: KPI strip → sticky filter bar → one row per practice (grid on desktop, stacked card on phone) */
+/* Home Assistant default light theme: grey page, white cards, light-blue primary. Deliberately light-only. */
+:root{
+  --page:#FAFAFA; --bg:#FFFFFF; --surface:#F5F5F5; --line:#E0E0E0; --fg:#212121; --muted:#727272;
+  --accent:#0288D1; --primary:#03A9F4; --accent-soft:#E1F5FE; --pos:#2E7D32; --pos-soft:#E8F5E9; --neg:#DB4437; --neg-soft:#FDECEA;
+  --warn:#B26A00; --warn-soft:#FFF4E0; --chip:#F2F2F2; --header:#03A9F4;
+  --shadow:0 2px 2px rgba(0,0,0,.08),0 1px 5px rgba(0,0,0,.06);
+  --sans:"Roboto",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:"Roboto Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{background:var(--page);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.45}
+.appbar{background:var(--header);color:#fff;padding-block:14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.appbar .in{max-width:1240px;margin:0 auto;display:flex;align-items:center;gap:12px;font-size:20px;font-weight:400}
+.appbar svg{flex:none}
+.wrap{max-width:1240px;margin:0 auto;padding-block:20px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-size:22px;font-weight:600;letter-spacing:-.01em;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:4px 0 0;max-width:70ch}
+.num{font-variant-numeric:tabular-nums}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between;margin-bottom:20px}
+.sync{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.dot.ok{background:var(--pos)} .dot.warn{background:var(--warn)}
+
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--bg);padding:14px 16px;min-width:0;border-radius:12px;box-shadow:var(--shadow)}
+.kpi .l{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.kpi .v{font-size:26px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums}
+.kpi .d{font-size:12px;color:var(--muted);margin-top:2px}
+.kpi .d .up{color:var(--pos)}
+.bar{height:4px;background:var(--chip);border-radius:2px;margin-top:8px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--primary)}
+
+.filters{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--page);padding-block:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--header)}
+.filters input[type=search],.filters select{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:0}
+.filters input[type=checkbox]{accent-color:var(--accent)}
+.card{background:var(--bg);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+.filters input[type=search]{flex:1 1 220px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{font:inherit;font-size:13px;border:0;background:var(--surface);color:var(--muted);padding:7px 10px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent);font-weight:500}
+.toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none}
+.btn{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:7px;padding:7px 12px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.count{margin-left:auto;font-size:12px;color:var(--muted)}
+
+.head,.row{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.3fr) minmax(0,1.9fr);gap:16px;align-items:start}
+.head{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:12px 12px 8px}
+.head button{all:unset;cursor:pointer}
+.head button:hover,.head button[aria-sort]{color:var(--fg)}
+.row{padding:16px 16px;background:var(--bg);border-radius:12px;box-shadow:var(--shadow);border:1px solid var(--line);border-left:4px solid var(--line)}
+.row:nth-child(even){background:#FCFCFD}
+.row.called{border-left-color:var(--primary)}
+.row.done{border-left-color:var(--pos)}
+#list{display:grid;gap:12px}
+.card{background:transparent;box-shadow:none;overflow:visible;border-radius:0}
+.head{padding:8px 16px 8px 20px}
+.row>*,.head>*{min-width:0}
+.step,.res select,.res input{min-width:0}
+.row.done{background:linear-gradient(90deg,var(--pos-soft),var(--bg) 40%)}
+.who{display:flex;gap:12px;min-width:0}
+.av{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:13px;color:var(--accent);background:var(--accent-soft);overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover}
+.name{font-weight:600}
+.meta{color:var(--muted);font-size:12.5px}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.tag{font-size:11px;padding:1px 7px;border-radius:999px;background:var(--chip);color:var(--muted)}
+.tag.acc{background:var(--accent-soft);color:var(--accent)}
+.tag.neg{background:var(--neg-soft);color:var(--neg)}
+.contact{display:grid;gap:4px;min-width:0}
+.cl{display:flex;align-items:center;gap:6px;min-width:0}
+.cl a,.cl span.t{color:var(--fg);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl a:hover{color:var(--accent)}
+.copy{flex:none;font:inherit;font-size:11px;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:5px;padding:0 6px;cursor:pointer}
+.copy:hover{color:var(--accent);border-color:var(--accent)}
+.links{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:2px;font-size:12.5px}
+.links a{color:var(--accent);text-decoration:none;font-weight:500}
+.links a:hover{text-decoration:underline}
+.links a.doclink{color:#107ACA}
+.backup{display:inline-flex;gap:6px}
+.savehint{margin:-6px 0 16px;padding:10px 14px;border-radius:10px;background:var(--accent-soft);color:var(--fg);font-size:13px;line-height:1.5;max-width:90ch}
+.mailbox{background:var(--bg);border-radius:12px;box-shadow:var(--shadow);margin-bottom:14px}
+.mailbox summary{cursor:pointer;padding:14px 16px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;font-weight:500;list-style:none}
+.mailbox summary::-webkit-details-marker{display:none}
+.mailbox summary::before{content:"▸";color:var(--accent);margin-right:2px}
+.mailbox[open] summary::before{content:"▾"}
+.mailbox summary .meta{font-weight:400;font-size:12.5px}
+.mb-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:20px;padding:0 16px 16px}
+.mb-fields{display:grid;gap:10px;align-content:start}
+.mb-fields label{display:grid;gap:4px;font-size:12.5px;color:var(--muted)}
+.mb-fields input:not([type=checkbox]){font:inherit;font-size:14px;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:0}
+.mb-fields .chk{display:flex;align-items:center;gap:8px;color:var(--fg)}
+.mb-fields .chk input{accent-color:var(--accent)}
+.small{font-size:11.5px;margin:0}
+.mb-preview{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:8px;min-width:0}
+.mb-subj{font-size:13px}
+.mb-preview pre{margin:0;white-space:pre-wrap;font-family:var(--sans);font-size:13.5px;line-height:1.55;color:var(--fg)}
+.mb-preview .btn{justify-self:start}
+.mailact{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.mailact .btn{padding:4px 10px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center}
+.mailact .btn.mailbtn{border-color:var(--accent);color:var(--accent);font-weight:500}
+.mailact .btn.call{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500}
+.cl .t.num{font-size:14px;font-weight:500}
+.dupnote{font-size:11.5px;line-height:1.35;color:var(--accent);background:var(--accent-soft);border-radius:6px;padding:3px 7px}
+.dupnote.warn{color:var(--warn);background:var(--warn-soft)}
+@media (max-width:760px){.mb-grid{grid-template-columns:minmax(0,1fr)}}
+.lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:none}
+.trip .big{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.trip .big small{font-size:12px;font-weight:400;color:var(--muted)}
+.lines{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
+.ln{font-family:var(--mono);font-size:10.5px;padding:0 5px;border-radius:3px;background:var(--chip);color:var(--fg)}
+.ln.s{background:#E6F4EA;color:#0F6B2F}.ln.u{background:#E5EEF9;color:#1D4E89}.ln.t{background:#FDECEC;color:#9B1C1C}.ln.b{background:#F3E8F7;color:#6B2A80}
+.hours{font-size:12.5px;font-variant-numeric:tabular-nums}
+.hours .today{color:var(--accent);font-weight:500}
+.hours .none{color:var(--muted)}
+.calls{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+.steps{display:flex;gap:6px}
+.step{flex:1;font:inherit;font-size:12px;border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:7px;padding:6px 4px;cursor:pointer;text-align:center;line-height:1.2}
+.step small{display:block;font-size:10.5px;opacity:.85}
+.step:hover{border-color:var(--accent);color:var(--fg)}
+.step[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+.res{display:flex;gap:6px}
+.res select,.res input{font:inherit;font-size:12.5px;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:5px 8px;min-width:0}
+.res select{flex:0 0 46%}.res input{flex:1}
+select.r-termin{border-color:var(--pos);color:var(--pos)}
+select.r-kein{border-color:var(--neg);color:var(--neg)}
+select.r-warte,select.r-rueck{border-color:var(--warn);color:var(--warn)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.empty{padding:40px 12px;text-align:center;color:var(--muted)}
+.foot{margin-top:28px;font-size:12px;color:var(--muted);display:grid;gap:4px;max-width:90ch}
+.foot a{color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+@media (max-width:960px){
+  .filters{position:static}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpis .kpi:last-child{grid-column:span 2}
+  .head{display:none}
+  .row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 16px;padding:16px 14px}
+  .row .who{grid-column:1/-1}.row .calls{grid-column:1/-1}
+  .lbl{display:block;margin-bottom:2px}
+}
+@media (max-width:520px){.row{grid-template-columns:minmax(0,1fr)}.row>*{grid-column:1/-1}.count{margin-left:0;width:100%}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media print{
+  .filters,.copy,.sync,.toast{display:none!important}
+  .row{break-inside:avoid}
+  body{font-size:11px}
+}
+</style>
+
+<div class="appbar"><div class="in"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>Psychiater-Anrufliste</div></div>
+<noscript><div style="margin:16px;padding:14px 16px;border-radius:12px;background:#FFF4E0;color:#7A4A00;font-size:15px;line-height:1.5"><b>Die Liste lädt in dieser Vorschau nicht.</b><br>Bitte die Datei in Safari oder Chrome öffnen (nicht in der WhatsApp-, Mail- oder Dateien-Vorschau). Am iPhone klappt es am besten über den Link statt über die Datei.</div></noscript>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Berlin · Kassenpraxen</h1>
+      <p class="sub">Praxen mit Kassenzulassung (Psychiatrie und Psychotherapie). Wege ab S+U Ostkreuz, Fahrzeit mit BVG/S-Bahn, Abfahrt werktags 9:00 Uhr. Anrufe pro Praxis abhaken.</p>
+    </div>
+    <div class="sync" id="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">Verbinde Speicher …</span></div>
+  </header>
+  <p class="savehint" id="saveHint" hidden>Dein Stand wird in diesem Browser gespeichert. <b>iPhone:</b> Seite über „Teilen → Zum Home-Bildschirm“ ablegen, sonst löscht Safari die Daten nach 7 Tagen ohne Besuch. Zur Sicherheit ab und zu „Stand sichern“.</p>
+
+  <section class="kpis" aria-label="Überblick">
+    <div class="kpi"><div class="l">Praxen</div><div class="v num" id="kTotal">–</div><div class="d" id="kTotalD">mit Telefonnummer</div></div>
+    <div class="kpi"><div class="l">Angerufen</div><div class="v num" id="kCalled">0</div><div class="d" id="kCalledD">–</div><div class="bar"><i id="kCalledBar" style="width:0"></i></div></div>
+    <div class="kpi"><div class="l">Anrufe gesamt</div><div class="v num" id="kAttempts">0</div><div class="d" id="kAttemptsD">–</div></div>
+    <div class="kpi"><div class="l">Termin / Warteliste</div><div class="v num" id="kWin">0</div><div class="d" id="kWinD">–</div></div>
+    <div class="kpi"><div class="l">Heute offene Sprechstunde</div><div class="v num" id="kOpen">–</div><div class="d" id="kOpenD">ohne Termin, laut 116117</div></div>
+  </section>
+
+  <details class="mailbox" id="mailbox">
+    <summary><span>E-Mail-Vorlage für die Terminanfrage</span><span class="meta" id="mbHint">Angaben einmal ausfüllen, dann bei jeder Praxis „In Outlook öffnen“ oder „Text kopieren“</span></summary>
+    <div class="mb-grid">
+      <div class="mb-fields">
+        <label for="mfName">Dein Name<input id="mfName" autocomplete="name" placeholder="Vor- und Nachname"></label>
+        <label for="mfBirth"><span>Geburtsdatum <span class="meta">(optional)</span></span><input id="mfBirth" placeholder="TT.MM.JJJJ"></label>
+        <label for="mfKasse">Krankenkasse<input id="mfKasse" placeholder="z. B. TK, AOK Nordost, Barmer"></label>
+        <label for="mfTel">Telefon<input id="mfTel" autocomplete="tel" placeholder="0170 …"></label>
+        <label for="mfTimes"><span>Gut erreichbar <span class="meta">(optional)</span></span><input id="mfTimes" placeholder="z. B. werktags ab 12 Uhr"></label>
+        <label class="chk"><input type="checkbox" id="mfUeb"> Überweisung mit Vermittlungscode liegt vor</label>
+        <p class="meta small">Bleibt nur in diesem Browser gespeichert.</p>
+      </div>
+      <div class="mb-preview">
+        <div class="mb-subj"><span class="meta">Betreff</span> <b id="mbSubj"></b></div>
+        <pre id="mbBody"></pre>
+        <button type="button" class="btn" id="mbCopy">Text kopieren</button>
+      </div>
+    </div>
+  </details>
+
+  <div class="filters" role="search">
+    <input type="search" id="q" placeholder="Name, Straße, PLZ, Bezirk …" aria-label="Suchen">
+    <div class="seg" role="group" aria-label="Status">
+      <button type="button" data-st="all" aria-pressed="true">Alle</button>
+      <button type="button" data-st="open" aria-pressed="false">Noch nicht angerufen</button>
+      <button type="button" data-st="active" aria-pressed="false">In Arbeit</button>
+      <button type="button" data-st="win" aria-pressed="false">Termin/Warteliste</button>
+    </div>
+    <select id="sortSel" aria-label="Sortieren">
+      <option value="min:1">Sortieren: Fahrzeit (kürzeste zuerst)</option>
+      <option value="km:1">Sortieren: Entfernung km (nächste zuerst)</option>
+      <option value="name:1">Sortieren: Name A–Z</option>
+      <option value="calls:1">Sortieren: wenigste Anrufe zuerst</option>
+      <option value="calls:-1">Sortieren: meiste Anrufe zuerst</option>
+    </select>
+    <select id="maxMin" aria-label="Maximale Fahrzeit">
+      <option value="999">Jede Fahrzeit</option>
+      <option value="20">bis 20 Min</option>
+      <option value="30">bis 30 Min</option>
+      <option value="45">bis 45 Min</option>
+    </select>
+    <label class="toggle"><input type="checkbox" id="todayOnly"> heute offene Sprechstunde</label>
+    <label class="toggle"><input type="checkbox" id="mailOnly"> mit E-Mail</label>
+    <button type="button" class="btn" id="csv">CSV exportieren</button>
+    <span class="backup">
+      <button type="button" class="btn" id="bkSave" title="Lädt eine Datei mit allen Anrufen und Notizen herunter">Stand sichern</button>
+      <button type="button" class="btn" id="bkLoad" title="Spielt eine gesicherte Datei wieder ein">Stand laden</button>
+      <input type="file" id="bkFile" accept=".json,application/json" hidden>
+    </span>
+    <span class="count num" id="count"></span>
+  </div>
+
+  <div class="card">
+  <div class="head" role="row">
+    <button type="button" data-sort="name">Praxis</button>
+    <span>Kontakt</span>
+    <button type="button" data-sort="min" aria-sort="ascending">ab Ostkreuz ↑</button>
+    <span>Ohne Termin (diese Woche)</span>
+    <button type="button" data-sort="calls">Anrufe &amp; Ergebnis</button>
+  </div>
+  <div id="list" role="table" aria-label="Praxen"></div>
+  </div>
+
+  <div class="foot">
+    <div>Quellen: Kontaktdaten und Sprechzeiten aus der <a href="https://arztsuche.116117.de/" target="_blank" rel="noopener">Arztsuche 116117</a> (KBV, abgerufen 09.11.2026). Fahrzeiten über die BVG-Verbindungsauskunft (<a href="https://v6.bvg.transport.rest/" target="_blank" rel="noopener">v6.bvg.transport.rest</a>), Koordinaten über OpenStreetMap Nominatim. Entfernung = Luftlinie ab Bahnhof Ostkreuz.</div>
+    <div>Online-Termin-Hinweise aus Doctolib, Stand 09.11.2026. Ob eine Praxis neue Patient:innen nimmt, steht in keiner Quelle; das klärt nur der Anruf.</div>
+    <div>Tipp: Mit Überweisung vom Hausarzt (Vermittlungscode) muss die 116117 innerhalb von 4 Wochen einen Facharzttermin vermitteln. Bei akuter Krise: 116117 oder 112.</div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const DATA = [{"id": "dr-angelika-nebe-10178", "name": "Dr. Angelika Nebe", "street": "Dircksenstraße 47", "plz": "10178", "bezirk": "Mitte", "tel": "030 234569870", "mail": "", "open": "Fr 08:00-09:00", "pt": false, "neuro": false, "km": 4.9, "min": 13, "lines": ["S7"], "doc": "", "docShort": "", "web": "https://www.neuropraxis-mitte.de", "docUrl": "https://www.doctolib.de/neurologie/berlin/angelika-nebe", "dup": [], "dupOtherAddr": false}, {"id": "dr-gernot-deter-10115", "name": "Dr. Gernot Deter", "street": "Große Hamburger Straße 5-11", "plz": "10115", "bezirk": "Mitte", "tel": "030 4614675", "mail": "info@nervenarzt-berlin-mitte.de", "open": "Mo 08:00-09:00; Mi 08:00-09:00,13:00-14:00; Do 08:00-09:00; Fr 13:00-14:00", "pt": false, "neuro": false, "km": 5.5, "min": 20, "lines": ["S7"], "doc": "", "docShort": "", "web": "https://www.nervenarzt-berlin-mitte.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-jurgen-berg-10115", "name": "Dr. Jürgen Berg", "street": "Große Hamburger Straße 5-11", "plz": "10115", "bezirk": "Mitte", "tel": "030 23457838", "mail": "mail@praxis-drglenz.de", "open": "Do 08:00-09:15,09:15-14:15", "pt": true, "neuro": false, "km": 5.5, "min": 20, "lines": ["S7"], "doc": "", "docShort": "", "web": "https://www.praxis-drglenz.de", "docUrl": "", "dup": ["Dr. Barbara Struthmann-Glenz"], "dupOtherAddr": false}, {"id": "dr-barbara-struthmann-glenz-10115", "name": "Dr. Barbara Struthmann-Glenz", "street": "Große Hamburger Straße 5-11", "plz": "10115", "bezirk": "Mitte", "tel": "030 23457838", "mail": "mail@praxis-drglenz.de", "open": "Mi 08:30-13:30", "pt": true, "neuro": false, "km": 5.5, "min": 20, "lines": ["S7"], "doc": "", "docShort": "", "web": "https://www.praxis-drglenz.de", "docUrl": "", "dup": ["Dr. Jürgen Berg"], "dupOtherAddr": false}, {"id": "dr-stefan-bloch-10115", "name": "Dr. Stefan Bloch", "street": "Große Hamburger Straße 5-11", "plz": "10115", "bezirk": "Mitte", "tel": "030 23112110", "mail": "poliklinikinneremedizin@alexianer.de", "open": "Do 09:30-12:00", "pt": true, "neuro": false, "km": 5.5, "min": 20, "lines": ["S7"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": ["Dr. Stefan Wendel"], "dupOtherAddr": false}, {"id": "dr-stefan-wendel-10115", "name": "Dr. Stefan Wendel", "street": "Große Hamburger Straße 5-11", "plz": "10115", "bezirk": "Mitte", "tel": "030 23112110", "mail": "poliklinikinneremedizin@alexianer.de", "open": "Do 09:30-12:00", "pt": true, "neuro": false, "km": 5.5, "min": 20, "lines": ["S7"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": ["Dr. Stefan Bloch"], "dupOtherAddr": false}, {"id": "dr-zerabruke-gebremariam-10117", "name": "Dr. Zerabruke Gebremariam", "street": "Marienstraße 30", "plz": "10117", "bezirk": "Mitte", "tel": "030 20624340", "mail": "praxis.gebremariam@gmx.de", "open": "Mo 08:30-12:30,13:30-16:30; Di 08:30-12:30,13:30-18:00; Mi 08:30-13:30; Do 08:30-13:30; Fr 09:00-13:30", "pt": true, "neuro": false, "km": 6.3, "min": 21, "lines": ["S7"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-gerolf-kunte-10117", "name": "Dr. Gerolf Kunte", "street": "Luisenstraße 52", "plz": "10117", "bezirk": "Mitte", "tel": "030 2817253", "mail": "praxisluisenstr@yahoo.de", "open": "Mo 08:30-18:00; Di 08:30-18:00; Mi 08:30-15:00; Do 08:30-15:00; Fr 07:00-13:00", "pt": true, "neuro": false, "km": 6.5, "min": 24, "lines": ["S3", "147"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-wilhelm-bruggen-10119", "name": "Dr. Wilhelm Brüggen", "street": "Rückerstraße 8", "plz": "10119", "bezirk": "Mitte", "tel": "030 6911836", "mail": "", "open": "Mi 10:10-13:00,14:00-18:00; Do 10:10-14:00,15:00-19:00; Fr 09:10-13:00,14:00-19:00", "pt": true, "neuro": false, "km": 5.0, "min": 20, "lines": ["S7", "U2"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-martin-kleinschmidt-10179", "name": "Dr. Martin Kleinschmidt", "street": "Sebastianstraße 21", "plz": "10179", "bezirk": "Mitte", "tel": "030 47009966", "mail": "team@martinkleinschmidt.de", "open": "Mo 14:00-16:30", "pt": true, "neuro": false, "km": 4.0, "min": 22, "lines": ["S3", "U8"], "doc": "", "docShort": "", "web": "https://www.martinkleinschmidt.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-katrin-kortner-10179", "name": "Dr. Katrin Körtner", "street": "Heinrich-Heine-Straße 20", "plz": "10179", "bezirk": "Mitte", "tel": "030 4624001", "mail": "", "open": "", "pt": true, "neuro": false, "km": 3.8, "min": 20, "lines": ["S7"], "doc": "", "docShort": "", "web": "https://www.psychiatrie-koertner.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-daniel-schumacher-10178", "name": "Dr. Daniel Schumacher", "street": "Weydingerstraße 18", "plz": "10178", "bezirk": "Mitte", "tel": "030 3966038", "mail": "", "open": "Mo 09:00-13:00,15:00-18:00; Di 09:00-13:00; Mi 09:00-13:00; Do 09:00-13:00,15:00-18:00; Fr 09:00-13:00", "pt": true, "neuro": false, "km": 4.6, "min": 20, "lines": ["S7"], "doc": "", "docShort": "", "web": "", "docUrl": "https://www.doctolib.de/neurologie/berlin/daniel-schumacher", "dup": [], "dupOtherAddr": false}, {"id": "andrea-bartholoma-portner-10115", "name": "Andrea Bartholomä-Pörtner", "street": "Brunnenstraße 160", "plz": "10115", "bezirk": "Mitte", "tel": "030 2112042", "mail": "", "open": "Mo 09:00-15:00; Di 09:00-15:00,17:00-20:00; Mi 09:00-15:00; Do 09:00-15:00; Fr 09:00-15:00", "pt": true, "neuro": false, "km": 6.0, "min": 22, "lines": ["S7", "U8"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": ["Dr. Andreas Stadelmann"], "dupOtherAddr": false}, {"id": "dr-andreas-stadelmann-10115", "name": "Dr. Andreas Stadelmann", "street": "Brunnenstraße 160", "plz": "10115", "bezirk": "Mitte", "tel": "030 2112042", "mail": "", "open": "Mo 10:00-13:00,15:30-18:00; Di 10:30-14:00,16:30-19:00; Mi 12:00-18:00; Do 10:30-14:00,16:30-19:00; Fr 12:00-18:00", "pt": true, "neuro": false, "km": 6.0, "min": 22, "lines": ["S7", "U8"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": ["Andrea Bartholomä-Pörtner"], "dupOtherAddr": false}, {"id": "matthias-brokmeier-10963", "name": "Matthias Brokmeier", "street": "Stresemannstraße 30", "plz": "10963", "bezirk": "Kreuzberg", "tel": "030 25294512", "mail": "", "open": "Mo 10:30-11:30; Di 10:30-11:30; Mi 10:30-11:30; Do 10:30-11:30; Fr 10:30-11:30", "pt": false, "neuro": false, "km": 5.5, "min": 29, "lines": ["S7", "U6"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-aditya-mungee-10405", "name": "Dr. Aditya Mungee", "street": "Kollwitzstraße 6", "plz": "10405", "bezirk": "Prenzlauer Berg", "tel": "030 220118210", "mail": "kontakt@drmungee.de", "open": "Mo 08:30-09:30; Di 14:00-15:00; Mi 08:30-09:30; Do 08:30-09:30; Fr 08:30-09:30", "pt": true, "neuro": false, "km": 4.9, "min": 23, "lines": ["S7", "U2"], "doc": "", "docShort": "", "web": "https://www.drmungee.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-mirjam-katona-10999", "name": "Dr. Mirjam Katona", "street": "Skalitzer Straße 15", "plz": "10999", "bezirk": "Kreuzberg", "tel": "030 69535090", "mail": "MVZ-GP@GMX.de", "open": "Mo 12:00-13:00; Do 12:00-13:00; Fr 12:00-13:00", "pt": true, "neuro": false, "km": 3.3, "min": 19, "lines": ["S3", "U3"], "doc": "Neupatient:innen online buchbar, aktuell keine freien Slots", "docShort": "keine freien Slots", "web": "", "docUrl": "https://www.doctolib.de/psychiatrie-und-psychotherapie/berlin/mirjam-dr-med-katona", "dup": [], "dupOtherAddr": false}, {"id": "dr-rurik-van-heys-10961", "name": "Dr. Rurik van Heys", "street": "Mehringdamm 43", "plz": "10961", "bezirk": "Kreuzberg", "tel": "030 6938760", "mail": "", "open": "Mo 08:00-09:00,12:00-13:00; Di 13:00-14:00; Mi 08:00-09:00; Do 08:00-09:00; Fr 10:00-12:00", "pt": false, "neuro": false, "km": 5.6, "min": 24, "lines": ["S41", "U6"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "gaby-weuthen-10999", "name": "Gaby Weuthen", "street": "Paul-Lincke-Ufer 44", "plz": "10999", "bezirk": "Kreuzberg", "tel": "030 61289303", "mail": "", "open": "Mo 09:00-14:00; Di 09:00-14:00; Mi 09:00-14:00; Do 14:00-19:00; Fr 08:00-13:00", "pt": true, "neuro": false, "km": 3.3, "min": 23, "lines": ["S3", "U3"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "matthias-bohe-10961", "name": "Matthias Bohe", "street": "Zossener Straße 36", "plz": "10961", "bezirk": "Kreuzberg", "tel": "030 6931018", "mail": "mail@nervenarztpraxis-bohe.de", "open": "Mo 08:00-10:00; Di 08:00-10:00; Fr 08:00-09:00", "pt": true, "neuro": false, "km": 5.2, "min": 24, "lines": ["S41", "U7"], "doc": "", "docShort": "", "web": "https://www.nervenarztpraxis-bohe.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "irem-durgun-10407", "name": "Irem Durgun", "street": "Esmarchstraße 19", "plz": "10407", "bezirk": "Prenzlauer Berg", "tel": "030 9278402", "mail": "info@praxiskoeller.de", "open": "Di 08:00-09:15,14:00-16:00; Mi 13:00-15:00; Do 08:00-09:15", "pt": true, "neuro": false, "km": 4.1, "min": 21, "lines": ["S42", "M4"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": ["Sven Heßmann-Kim", "Dr. Wolfgang Köller"], "dupOtherAddr": false}, {"id": "sven-hemann-kim-10407", "name": "Sven Heßmann-Kim", "street": "Esmarchstraße 19", "plz": "10407", "bezirk": "Prenzlauer Berg", "tel": "030 9278402", "mail": "info@praxiskoeller.de", "open": "Mo 08:00-10:00; Di 08:00-10:00; Mi 08:00-09:00", "pt": true, "neuro": false, "km": 4.1, "min": 21, "lines": ["S42", "M4"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": ["Irem Durgun", "Dr. Wolfgang Köller"], "dupOtherAddr": false}, {"id": "dr-wolfgang-koller-10407", "name": "Dr. Wolfgang Köller", "street": "Esmarchstraße 19", "plz": "10407", "bezirk": "Prenzlauer Berg", "tel": "030 9278402", "mail": "info@praxiskoeller.de", "open": "Mo 08:00-09:30; Mi 08:00-10:00; Do 08:00-09:45", "pt": true, "neuro": false, "km": 4.1, "min": 21, "lines": ["S42", "M4"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": ["Irem Durgun", "Sven Heßmann-Kim"], "dupOtherAddr": false}, {"id": "dr-carsten-urbanek-10961", "name": "Dr. Carsten Urbanek", "street": "Bergmannstraße 5", "plz": "10961", "bezirk": "Kreuzberg", "tel": "07000 40001000", "mail": "", "open": "Mo 08:30-09:00; Di 08:30-09:00; Mi 08:30-09:00; Do 08:30-12:00", "pt": true, "neuro": false, "km": 5.6, "min": 31, "lines": ["S41", "U6"], "doc": "", "docShort": "", "web": "https://drcu.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-abdullah-can-bahtiyar-10249", "name": "Dr. Abdullah Can Bahtiyar", "street": "Matthiasstraße 7", "plz": "10249", "bezirk": "Friedrichshain", "tel": "030 42108650", "mail": "info@praxis-bahtiyar.de", "open": "Mo 08:30-09:30; Di 08:30-09:30,13:30-16:00; Mi 08:30-09:30; Do 08:30-09:30; Fr 08:30-09:30", "pt": true, "neuro": false, "km": 2.9, "min": 19, "lines": ["S42", "M6"], "doc": "Neupatient:innen online buchbar, aktuell keine freien Slots", "docShort": "keine freien Slots", "web": "https://www.praxis-bahtiyar.de", "docUrl": "https://www.doctolib.de/neurologie/berlin/abdullah-can-bahtiyar", "dup": [], "dupOtherAddr": false}, {"id": "dr-ferdinand-klopfer-13355", "name": "Dr. Ferdinand Klopfer", "street": "Ramlerstraße 6", "plz": "13355", "bezirk": "Wedding", "tel": "030 46799630", "mail": "team@praxisklopfer.de", "open": "Mo 08:00-10:30", "pt": true, "neuro": false, "km": 7.2, "min": 19, "lines": ["S42"], "doc": "", "docShort": "", "web": "https://www.praxisklopfer.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-anna-klosterhuis-10967", "name": "Dr. Anna Klosterhuis", "street": "Urbanstraße 115", "plz": "10967", "bezirk": "Kreuzberg", "tel": "030 55496373", "mail": "praxisurbanstrasse@posteo.de", "open": "Di 08:30-09:30; Do 13:30-14:30; Fr 08:30-09:00,09:00-11:00", "pt": false, "neuro": false, "km": 3.7, "min": 26, "lines": ["S41", "U8"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-regina-kro-10249", "name": "Dr. Regina Kroß", "street": "Petersburger Platz 3", "plz": "10249", "bezirk": "Friedrichshain", "tel": "030 4296958", "mail": "", "open": "Mo 10:00-13:00; Di 11:00-18:00; Do 09:00-16:00; Fr 10:00-13:00", "pt": false, "neuro": false, "km": 2.4, "min": 19, "lines": ["S3", "M10"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-frederick-haase-10243", "name": "Dr. Frederick Haase", "street": "Gubener Straße 37", "plz": "10243", "bezirk": "Friedrichshain", "tel": "030 29363950", "mail": "info@praxiscityost.de", "open": "", "pt": true, "neuro": false, "km": 1.5, "min": 10, "lines": ["S7"], "doc": "", "docShort": "", "web": "https://www.praxiscityost.de", "docUrl": "", "dup": ["Andreas Mertens"], "dupOtherAddr": false}, {"id": "andreas-mertens-10243", "name": "Andreas Mertens", "street": "Gubener Straße 37", "plz": "10243", "bezirk": "Friedrichshain", "tel": "030 29363950", "mail": "info@praxiscityost.de", "open": "Mo 14:30-15:15; Di 10:00-10:45,15:00-17:00; Mi 10:00-10:45,10:45-13:00; Do 14:30-15:15,15:15-17:00; Fr 10:00-10:45,10:45-13:00", "pt": false, "neuro": false, "km": 1.5, "min": 10, "lines": ["S7"], "doc": "", "docShort": "", "web": "https://www.praxiscityost.de", "docUrl": "", "dup": ["Dr. Frederick Haase"], "dupOtherAddr": false}, {"id": "dr-johanna-winkler-13357", "name": "Dr. Johanna Winkler", "street": "Grüntaler Straße 9", "plz": "13357", "bezirk": "Wedding", "tel": "030 88773333", "mail": "", "open": "Di 08:30-12:00; Do 10:30-12:00", "pt": true, "neuro": false, "km": 7.8, "min": 21, "lines": ["S42"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "iyad-akkam-10409", "name": "Iyad Akkam", "street": "Prenzlauer Allee 90", "plz": "10409", "bezirk": "Prenzlauer Berg", "tel": "030 4193504150", "mail": "", "open": "Di 08:00-10:00; Mi 10:00-11:00; Do 08:00-10:00", "pt": true, "neuro": false, "km": 5.5, "min": 13, "lines": ["S42"], "doc": "Neupatient:innen online buchbar, aktuell keine freien Slots", "docShort": "keine freien Slots", "web": "https://www.sana-gz.de", "docUrl": "https://www.doctolib.de/psychiatrie-und-psychotherapie/berlin/iyad-akkam", "dup": [], "dupOtherAddr": false}, {"id": "eva-reichelt-12047", "name": "Eva Reichelt", "street": "Reuterstraße 55", "plz": "12047", "bezirk": "Neukölln", "tel": "030 43726567", "mail": "", "open": "Mo 08:30-11:20,14:30-18:20; Di 08:30-12:20,15:30-19:20; Mi 08:30-12:20,16:30-19:20; Do 08:30-11:20,15:30-19:20; Fr 08:30-12:20,14:30-15:20", "pt": true, "neuro": false, "km": 3.1, "min": 23, "lines": ["S41", "U8"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "irina-nowizki-13357", "name": "Irina Nowizki", "street": "Badstraße 23", "plz": "13357", "bezirk": "Wedding", "tel": "030 46112746", "mail": "", "open": "Mo 12:00-18:00; Di 09:00-14:00; Mi 09:00-14:00; Do 12:00-18:00; Fr 09:00-12:00", "pt": false, "neuro": false, "km": 8.0, "min": 22, "lines": ["S42"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-timo-pauli-10249", "name": "Dr. Timo Pauli", "street": "Thaerstraße 41", "plz": "10249", "bezirk": "Friedrichshain", "tel": "030 4297907", "mail": "kontakt@praxispauli.de", "open": "Mo 09:00-11:00; Di 09:00-10:30; Mi 09:00-10:30", "pt": true, "neuro": false, "km": 2.2, "min": 18, "lines": ["S3", "M10"], "doc": "", "docShort": "", "web": "https://www.praxispauli.de", "docUrl": "", "dup": ["Dr. Elisa Sarrecchia"], "dupOtherAddr": false}, {"id": "dr-elisa-sarrecchia-10249", "name": "Dr. Elisa Sarrecchia", "street": "Thaerstraße 41", "plz": "10249", "bezirk": "Friedrichshain", "tel": "030 4297907", "mail": "", "open": "Mo 09:00-10:30; Di 09:00-10:30; Mi 09:00-11:00", "pt": true, "neuro": false, "km": 2.2, "min": 18, "lines": ["S3", "M10"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": ["Dr. Timo Pauli"], "dupOtherAddr": false}, {"id": "dr-christian-krysmanski-13357", "name": "Dr. Christian Krysmanski", "street": "Prinzenallee 89-90", "plz": "13357", "bezirk": "Wedding", "tel": "030 4618378", "mail": "", "open": "Mo 09:00-13:00,15:00-18:00; Di 09:00-13:00,15:00-18:00; Do 09:00-14:00; Fr 09:00-13:00", "pt": true, "neuro": false, "km": 8.1, "min": 23, "lines": ["S42", "U8"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "christopher-weinfurtner-13347", "name": "Christopher Weinfurtner", "street": "Nazarethkirchstraße 52", "plz": "13347", "bezirk": "Wedding", "tel": "030 86323270", "mail": "nazarethkirchstrasse@medicover.de", "open": "Mo 09:00-10:00,16:00-16:30; Fr 09:00-10:00", "pt": true, "neuro": false, "km": 9.0, "min": 24, "lines": ["S42", "U6"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": ["Dr. Sonja Greshake"], "dupOtherAddr": false}, {"id": "dr-sonja-greshake-13347", "name": "Dr. Sonja Greshake", "street": "Nazarethkirchstraße 52", "plz": "13347", "bezirk": "Wedding", "tel": "030 86323270", "mail": "nazarethkirchstrasse@medicover.de", "open": "Mo 09:00-10:00; Do 09:00-09:30; Fr 09:00-10:00", "pt": true, "neuro": false, "km": 9.0, "min": 24, "lines": ["S42", "U6"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": ["Christopher Weinfurtner"], "dupOtherAddr": false}, {"id": "dr-georg-oberwalleney-12045", "name": "Dr. Georg Oberwalleney", "street": "Sonnenallee 37", "plz": "12045", "bezirk": "Neukölln", "tel": "030 6248081", "mail": "praxis@psychiater-sonnenallee.de", "open": "Mo 09:00-13:00,10:30-12:00,15:00-18:00; Di 09:00-13:00,10:30-12:00,15:00-18:00; Do 09:00-13:00,10:30-12:00,15:00-18:00; Fr 09:00-13:00,10:00-10:30", "pt": true, "neuro": false, "km": 3.2, "min": 22, "lines": ["194"], "doc": "", "docShort": "", "web": "https://www.psychiater-sonnenallee.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-sabine-wagner-10555", "name": "Dr. Sabine Wagner", "street": "Levetzowstraße 25", "plz": "10555", "bezirk": "Moabit", "tel": "030 3916806", "mail": "", "open": "Mo 10:00-14:00,14:30-18:00; Di 10:00-14:00,14:30-18:00; Do 10:00-14:00,14:30-18:00; Fr 10:00-14:00", "pt": true, "neuro": false, "km": 9.6, "min": 34, "lines": ["S42", "106"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "harald-genieser-10779", "name": "Harald Genieser", "street": "Martin-Luther-Straße 58", "plz": "10779", "bezirk": "Schöneberg", "tel": "030 2112412", "mail": "mail@praxis-genieser.de", "open": "Mo 09:00-14:00", "pt": true, "neuro": false, "km": 8.5, "min": 30, "lines": ["S41", "M46"], "doc": "", "docShort": "", "web": "https://www.praxis-genieser.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-heike-ebeling-10779", "name": "Dr. Heike Ebeling", "street": "Martin-Luther-Straße 58", "plz": "10779", "bezirk": "Schöneberg", "tel": "030 23289683", "mail": "", "open": "Di 08:00-09:30; Mi 08:00-09:30; Do 12:00-13:00; Fr 08:00-09:00", "pt": true, "neuro": false, "km": 8.5, "min": 30, "lines": ["S41", "M46"], "doc": "", "docShort": "", "web": "https://www.psychiatrie-schoeneberg.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-jochen-stappert-12049", "name": "Dr. Jochen Stappert", "street": "Hermannstraße 184", "plz": "12049", "bezirk": "Neukölln", "tel": "030 36443120", "mail": "", "open": "Mo 13:00-14:00; Di 09:00-10:00; Mi 09:00-10:00; Do 14:00-15:00; Fr 09:00-10:00", "pt": true, "neuro": false, "km": 4.3, "min": 15, "lines": ["S41", "U8"], "doc": "", "docShort": "", "web": "", "docUrl": "https://www.doctolib.de/psychiatrie-und-psychotherapie/berlin/jochen-stappert", "dup": ["Dr. Kathrin Redies"], "dupOtherAddr": false}, {"id": "dr-kathrin-redies-12049", "name": "Dr. Kathrin Redies", "street": "Hermannstraße 184", "plz": "12049", "bezirk": "Neukölln", "tel": "030 36443120", "mail": "", "open": "", "pt": false, "neuro": false, "km": 4.3, "min": 15, "lines": ["S41", "U8"], "doc": "", "docShort": "", "web": "", "docUrl": "https://www.doctolib.de/psychiatrie-und-psychotherapie/berlin/kathrin-redies-berlin", "dup": ["Dr. Jochen Stappert"], "dupOtherAddr": false}, {"id": "dr-jana-thomsen-10245", "name": "Dr. Jana Thomsen", "street": "Boxhagener Straße 43", "plz": "10245", "bezirk": "Friedrichshain", "tel": "030 29665613", "mail": "praxis.dr.thomsen@web.de", "open": "Mo 11:00-15:00; Di 13:00-18:00; Mi 08:00-09:00,09:00-12:00; Do 13:00-18:00", "pt": true, "neuro": false, "km": 0.9, "min": 10, "lines": ["240"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-giorgi-maziashvili-10247", "name": "Dr. Giorgi Maziashvili", "street": "Frankfurter Allee 54", "plz": "10247", "bezirk": "Friedrichshain", "tel": "030 29776717", "mail": "", "open": "Mo 17:00-18:00; Di 09:30-10:30; Mi 10:00-11:00; Do 09:30-10:30; Fr 09:30-10:30", "pt": true, "neuro": false, "km": 1.3, "min": 9, "lines": ["S8", "U5"], "doc": "Neupatient:innen online buchbar, aktuell keine freien Slots", "docShort": "keine freien Slots", "web": "", "docUrl": "https://www.doctolib.de/psychiatrie-und-psychotherapie/berlin/giorgi-maziashvili", "dup": [], "dupOtherAddr": false}, {"id": "amer-almasri-10719", "name": "Amer Almasri", "street": "Lietzenburger Straße 54", "plz": "10719", "bezirk": "Wilmersdorf", "tel": "030 3129800", "mail": "", "open": "Fr 09:00-11:00; Sa 09:00-11:00,09:00-14:00", "pt": true, "neuro": false, "km": 9.4, "min": 33, "lines": ["S7"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-ferdinand-haenel-12043", "name": "Dr. Ferdinand Haenel", "street": "Karl-Marx-Straße 80", "plz": "12043", "bezirk": "Neukölln", "tel": "030 6238485", "mail": "neukoelln@rosero.de", "open": "", "pt": true, "neuro": false, "km": 3.4, "min": 17, "lines": ["S41", "U7"], "doc": "", "docShort": "", "web": "https://kinder-mvz-berlin.de", "docUrl": "", "dup": ["Dr. Johann-Friedrich Weinhagen", "Alicia Navarro Urena", "Primoz Debevec"], "dupOtherAddr": false}, {"id": "dr-johann-friedrich-weinhagen-12043", "name": "Dr. Johann-Friedrich Weinhagen", "street": "Karl-Marx-Straße 80", "plz": "12043", "bezirk": "Neukölln", "tel": "030 6238485", "mail": "neukoelln@rosero.de", "open": "", "pt": true, "neuro": false, "km": 3.4, "min": 17, "lines": ["S41", "U7"], "doc": "", "docShort": "", "web": "https://kinder-mvz-berlin.de", "docUrl": "", "dup": ["Dr. Ferdinand Haenel", "Alicia Navarro Urena", "Primoz Debevec"], "dupOtherAddr": false}, {"id": "alicia-navarro-urena-12043", "name": "Alicia Navarro Urena", "street": "Karl-Marx-Straße 80", "plz": "12043", "bezirk": "Neukölln", "tel": "030 6238485", "mail": "neukoelln@rosero.de", "open": "", "pt": true, "neuro": false, "km": 3.4, "min": 17, "lines": ["S41", "U7"], "doc": "", "docShort": "", "web": "https://kinder-mvz-berlin.de", "docUrl": "", "dup": ["Dr. Ferdinand Haenel", "Dr. Johann-Friedrich Weinhagen", "Primoz Debevec"], "dupOtherAddr": false}, {"id": "primoz-debevec-12043", "name": "Primoz Debevec", "street": "Karl-Marx-Straße 80", "plz": "12043", "bezirk": "Neukölln", "tel": "030 6238485", "mail": "neukoelln@rosero.de", "open": "", "pt": false, "neuro": false, "km": 3.4, "min": 17, "lines": ["S41", "U7"], "doc": "", "docShort": "", "web": "https://kinder-mvz-berlin.de", "docUrl": "", "dup": ["Dr. Ferdinand Haenel", "Dr. Johann-Friedrich Weinhagen", "Alicia Navarro Urena"], "dupOtherAddr": false}, {"id": "dr-mina-mullner-12043", "name": "Dr. Mina Müllner", "street": "Erkstraße 3", "plz": "12043", "bezirk": "Neukölln", "tel": "030 6874388", "mail": "info@praxis-muellner.de", "open": "Di 09:00-12:00; Do 14:00-16:00", "pt": true, "neuro": false, "km": 3.3, "min": 18, "lines": ["S41", "U7"], "doc": "", "docShort": "", "web": "https://www.praxis-muellner.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-marie-louise-andriessens-10623", "name": "Dr. Marie-Louise Andriessens", "street": "Carmerstraße 7", "plz": "10623", "bezirk": "Charlottenburg", "tel": "030 31015422", "mail": "", "open": "Mo 09:00-10:00; Di 11:00-12:00,12:00-17:00; Mi 09:00-10:00,10:00-14:00; Do 09:00-10:00,10:00-14:00; Fr 09:00-10:00,10:00-12:00", "pt": true, "neuro": false, "km": 9.9, "min": 31, "lines": ["S3", "M49"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "martin-vogel-10823", "name": "Martin Vogel", "street": "Dominicusstraße 5", "plz": "10823", "bezirk": "Schöneberg", "tel": "030 23631380", "mail": "medizin.schoeneberg@pinel.de", "open": "Mi 09:00-14:00; Fr 09:00-13:00", "pt": true, "neuro": false, "km": 8.6, "min": 26, "lines": ["S41"], "doc": "", "docShort": "", "web": "https://www.mvz-pinel.de", "docUrl": "", "dup": ["Dr. Katia Häfner"], "dupOtherAddr": false}, {"id": "dr-katia-hafner-10823", "name": "Dr. Katia Häfner", "street": "Dominicusstraße 5", "plz": "10823", "bezirk": "Schöneberg", "tel": "030 23631380", "mail": "medizin.schoeneberg@pinel.de", "open": "", "pt": true, "neuro": false, "km": 8.6, "min": 26, "lines": ["S41"], "doc": "", "docShort": "", "web": "https://www.mvz-pinel.de", "docUrl": "", "dup": ["Martin Vogel"], "dupOtherAddr": false}, {"id": "leonore-schrod-12053", "name": "Leonore Schrod", "street": "Briesestraße 70", "plz": "12053", "bezirk": "Neukölln", "tel": "030 6222053", "mail": "leonore_schrod@web.de", "open": "Mo 13:30-16:00,16:00-17:30; Di 08:30-09:30,09:30-12:30; Do 08:30-12:30", "pt": true, "neuro": false, "km": 4.0, "min": 22, "lines": ["S41", "U8"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "kerstin-adamczak-10623", "name": "Kerstin Adamczak", "street": "Knesebeckstraße 13-14", "plz": "10623", "bezirk": "Charlottenburg", "tel": "030 31805151", "mail": "k.ada@gmx.de", "open": "Mo 08:00-13:00,16:00-19:00; Di 08:00-13:00,16:00-19:00; Mi 08:00-13:00; Do 08:00-13:00,16:00-19:00; Fr 08:00-13:00", "pt": true, "neuro": false, "km": 9.9, "min": 33, "lines": ["S7", "U2"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-lena-bendukat-10369", "name": "Dr. Lena Bendukat", "street": "Franz-Jacob-Straße 10", "plz": "10369", "bezirk": "Lichtenberg", "tel": "030 86204680", "mail": "fennpfuhl@policum.berlin", "open": "Mo 14:00-15:00; Di 11:30-12:30; Mi 10:00-11:00; Do 08:00-09:00", "pt": true, "neuro": false, "km": 2.8, "min": 13, "lines": ["S42"], "doc": "", "docShort": "", "web": "https://policum.berlin", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-christine-menzhausen-10623", "name": "Dr. Christine Menzhausen", "street": "Grolmanstraße 36", "plz": "10623", "bezirk": "Charlottenburg", "tel": "030 88682016", "mail": "Menzhausen@aol.com", "open": "Mo 09:00-11:00; Mi 17:00-18:00; Do 13:00-14:00; Fr 10:00-11:00", "pt": true, "neuro": false, "km": 9.8, "min": 33, "lines": ["S3", "M49"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": ["Lutz Menzhausen"], "dupOtherAddr": false}, {"id": "lutz-menzhausen-10623", "name": "Lutz Menzhausen", "street": "Grolmanstraße 36", "plz": "10623", "bezirk": "Charlottenburg", "tel": "030 88682016", "mail": "Menzhausen@aol.com", "open": "Mo 11:00-12:00; Di 10:00-12:00,15:00-16:00; Mi 11:00-12:00", "pt": true, "neuro": false, "km": 9.8, "min": 33, "lines": ["S3", "M49"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": ["Dr. Christine Menzhausen"], "dupOtherAddr": false}, {"id": "rudolf-van-zuijlekom-12435", "name": "Rudolf van Zuijlekom", "street": "Elsenstraße 37", "plz": "12435", "bezirk": "Treptow", "tel": "030 29678362", "mail": "praxis@vanzuijlekom.de", "open": "Di 09:00-10:00; Mi 09:00-10:00; Do 13:30-14:30", "pt": true, "neuro": false, "km": 2.1, "min": 13, "lines": ["M43"], "doc": "", "docShort": "", "web": "https://www.vanzuijlekom.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-kay-spickschen-12435", "name": "Dr. Kay Spickschen", "street": "Elsenstraße 111", "plz": "12435", "bezirk": "Treptow", "tel": "030 65070390", "mail": "", "open": "Mo 12:00-15:00,15:00-19:00; Di 09:00-11:00,11:00-15:00; Mi 12:00-15:00,15:00-19:00; Do 09:00-11:00,11:00-15:00", "pt": true, "neuro": false, "km": 1.6, "min": 10, "lines": ["S41"], "doc": "", "docShort": "", "web": "", "docUrl": "https://www.doctolib.de/neurologie-und-psychiatrie/berlin/kay-spickschen", "dup": [], "dupOtherAddr": false}, {"id": "dr-gerhard-perchalla-10623", "name": "Dr. Gerhard Perchalla", "street": "Knesebeckstraße 74", "plz": "10623", "bezirk": "Charlottenburg", "tel": "030 88677070", "mail": "mail@dr-perchalla.com", "open": "Mo 08:30-13:00,15:00-18:00; Di 08:30-13:00,15:00-18:00; Do 08:30-13:00,15:00-18:00; Fr 08:30-13:00", "pt": true, "neuro": false, "km": 9.9, "min": 32, "lines": ["S3", "M49"], "doc": "", "docShort": "", "web": "https://www.dr-perchalla.com", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-vanja-loos-vranic-13409", "name": "Dr. Vanja Loos-Vranic", "street": "Residenzstraße 95", "plz": "13409", "bezirk": "Reinickendorf", "tel": "030 992969630", "mail": "wolf@mzib.de", "open": "", "pt": false, "neuro": false, "km": 9.3, "min": 30, "lines": ["S42", "U8"], "doc": "", "docShort": "", "web": "https://www.mzib.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-till-letsche-10247", "name": "Dr. Till Letsche", "street": "Frankfurter Allee 100", "plz": "10247", "bezirk": "Friedrichshain", "tel": "030 33988780", "mail": "info@gesund-in-friedrichshain.de", "open": "", "pt": false, "neuro": false, "km": 1.2, "min": 5, "lines": ["S42"], "doc": "", "docShort": "", "web": "https://www.gesund-in-friedrichshain.de", "docUrl": "", "dup": ["Moritz Veltmann"], "dupOtherAddr": false}, {"id": "moritz-veltmann-10247", "name": "Moritz Veltmann", "street": "Frankfurter Allee 100", "plz": "10247", "bezirk": "Friedrichshain", "tel": "030 33988780", "mail": "info@gesund-in-friedrichshain.de", "open": "", "pt": false, "neuro": false, "km": 1.2, "min": 5, "lines": ["S42"], "doc": "", "docShort": "", "web": "https://www.gesund-in-friedrichshain.de", "docUrl": "", "dup": ["Dr. Till Letsche"], "dupOtherAddr": false}, {"id": "dr-uta-siegel-10715", "name": "Dr. Uta Siegel", "street": "Berliner Straße 8", "plz": "10715", "bezirk": "Wilmersdorf", "tel": "030 85733540", "mail": "praxis@dr-uta-siegel.de", "open": "Do 14:00-19:00", "pt": true, "neuro": false, "km": 9.4, "min": 26, "lines": ["S41", "U9"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-mariam-ujeyl-10715", "name": "Dr. Mariam Ujeyl", "street": "Berliner Straße 8", "plz": "10715", "bezirk": "Wilmersdorf", "tel": "030 39038664", "mail": "info@praxis-ujeyl.de", "open": "Mo 14:00-15:00; Di 08:00-09:00,13:00-14:00; Do 08:00-09:00; Fr 08:00-09:00", "pt": true, "neuro": false, "km": 9.4, "min": 26, "lines": ["S41", "U9"], "doc": "", "docShort": "", "web": "https://www.praxis-ujeyl.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "holger-lieberodt-10715", "name": "Holger Lieberodt", "street": "Badensche Straße 18", "plz": "10715", "bezirk": "Wilmersdorf", "tel": "030 85409964", "mail": "", "open": "Mo 12:00-13:00; Di 18:00-18:30; Mi 12:00-12:30; Do 12:00-12:30", "pt": true, "neuro": false, "km": 9.4, "min": 26, "lines": ["S41", "U9"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": ["Felipe Do Nascimento Vieira Da Silva"], "dupOtherAddr": false}, {"id": "felipe-do-nascimento-vieira-da-silva-10715", "name": "Felipe Do Nascimento Vieira Da Silva", "street": "Badensche Straße 18", "plz": "10715", "bezirk": "Wilmersdorf", "tel": "030 85409964", "mail": "", "open": "", "pt": true, "neuro": false, "km": 9.4, "min": 26, "lines": ["S41", "U9"], "doc": "", "docShort": "", "web": "", "docUrl": "https://www.doctolib.de/psychiatrie-und-psychotherapie/berlin/felipe-do-nascimento-vieira-da-silva-berlin", "dup": ["Holger Lieberodt"], "dupOtherAddr": false}, {"id": "dr-kersten-schulz-13086", "name": "Dr. Kersten Schulz", "street": "Schönstraße 5-7", "plz": "13086", "bezirk": "Weißensee", "tel": "030 56498485", "mail": "", "open": "Mo 09:30-12:30,14:00-17:30; Di 08:00-12:30,14:00-15:00; Mi 08:00-13:00,13:30-16:00; Do 09:30-12:30,14:00-17:30; Fr 08:00-12:00,13:00-14:30", "pt": true, "neuro": false, "km": 5.7, "min": 26, "lines": ["S42", "M4"], "doc": "", "docShort": "", "web": "https://www.psych-weissensee.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-kirsten-hahn-13187", "name": "Dr. Kirsten Hahn", "street": "Florastraße 44", "plz": "13187", "bezirk": "Pankow", "tel": "030 49918191", "mail": "", "open": "Mo 08:00-10:00; Di 08:00-10:00; Mi 08:00-09:00", "pt": false, "neuro": false, "km": 8.1, "min": 23, "lines": ["S8"], "doc": "", "docShort": "", "web": "", "docUrl": "https://www.doctolib.de/neurologie-und-psychiatrie/berlin/kirsten-hahn", "dup": [], "dupOtherAddr": false}, {"id": "swantje-studer-12099", "name": "Swantje Studer", "street": "Alt-Tempelhof 14", "plz": "12099", "bezirk": "Tempelhof", "tel": "030 7518073", "mail": "", "open": "Mo 12:00-13:00,18:00-19:00; Di 12:00-13:00,14:00-16:00; Mi 10:00-15:00; Do 17:00-18:00; Fr 14:00-15:00", "pt": false, "neuro": false, "km": 6.9, "min": 19, "lines": ["S41", "U6"], "doc": "", "docShort": "", "web": "", "docUrl": "https://www.doctolib.de/neurologie-und-psychiatrie/berlin/swantje-studer", "dup": [], "dupOtherAddr": false}, {"id": "abit-kazci-12043", "name": "Abit Kazci", "street": "Karl-Marx-Straße 188", "plz": "12043", "bezirk": "Neukölln", "tel": "030 6814088", "mail": "", "open": "Mo 10:00-11:00,16:00-17:00; Di 16:00-17:00; Mi 17:00-18:00; Do 16:00-17:00", "pt": true, "neuro": false, "km": 3.8, "min": 16, "lines": ["S41"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-katrin-geth-zemojtel-12099", "name": "Dr. Katrin Geth-Zemojtel", "street": "Tempelhofer Damm 145", "plz": "12099", "bezirk": "Tempelhof", "tel": "030 7521890", "mail": "", "open": "Mo 09:00-13:00; Di 09:00-12:00,14:00-16:00; Mi 09:00-12:00,14:00-17:00; Do 09:00-12:00,14:00-16:00", "pt": true, "neuro": false, "km": 7.0, "min": 18, "lines": ["S41", "U6"], "doc": "nur Bestandspatient:innen online", "docShort": "nur Bestand", "web": "https://www.praxis-hecker-gessler.de", "docUrl": "https://www.doctolib.de/psychiatrie-und-psychotherapie/berlin/katrin-geth-zemojtel", "dup": [], "dupOtherAddr": false}, {"id": "olga-sauter-12055", "name": "Olga Sauter", "street": "Karl-Marx-Straße 196", "plz": "12055", "bezirk": "Neukölln", "tel": "030 6871933", "mail": "info@praxis-sauter.berlin", "open": "Mo 10:00-11:00,15:00-16:00; Di 08:00-09:00,15:00-16:00; Mi 08:00-09:00,15:00-16:00; Do 08:00-09:00,09:00-15:00,15:00-16:00; Fr 09:00-12:00", "pt": true, "neuro": false, "km": 3.9, "min": 15, "lines": ["S41"], "doc": "", "docShort": "", "web": "https://www.praxis-sauter.berlin", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-wolfgang-niemczyk-10713", "name": "Dr. Wolfgang Niemczyk", "street": "Hohenzollerndamm 187", "plz": "10713", "bezirk": "Wilmersdorf", "tel": "030 887276890", "mail": "", "open": "Mo 14:00-16:30", "pt": false, "neuro": false, "km": 10.2, "min": 34, "lines": ["S41", "U3"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": ["Dr. Silke Onken"], "dupOtherAddr": false}, {"id": "dr-silke-onken-10713", "name": "Dr. Silke Onken", "street": "Hohenzollerndamm 187", "plz": "10713", "bezirk": "Wilmersdorf", "tel": "030 887276890", "mail": "", "open": "Mo 09:00-11:30", "pt": true, "neuro": false, "km": 10.2, "min": 34, "lines": ["S41", "U3"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": ["Dr. Wolfgang Niemczyk"], "dupOtherAddr": false}, {"id": "jutta-timphus-13187", "name": "Jutta Timphus", "street": "Schönholzer Straße 6", "plz": "13187", "bezirk": "Pankow", "tel": "030 2946650", "mail": "praxis-timphus@t-online.de", "open": "Mo 12:00-18:00; Di 09:00-14:00; Mi 09:00-14:00; Do 13:00-18:00; Fr 09:00-14:00", "pt": false, "neuro": false, "km": 8.8, "min": 31, "lines": ["S42", "U2", "250"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-yrsa-werzinger-12099", "name": "Dr. Yrsa Werzinger", "street": "Tempelhofer Damm 158", "plz": "12099", "bezirk": "Tempelhof", "tel": "030 62893333", "mail": "", "open": "Mo 12:30-13:30; Di 12:00-13:00,16:00-16:30; Do 12:00-13:00,16:00-16:30; Fr 12:00-13:00", "pt": true, "neuro": false, "km": 7.1, "min": 20, "lines": ["S41", "U6"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "mohamed-ibrahim-10715", "name": "Mohamed Ibrahim", "street": "Hildegardstraße 31", "plz": "10715", "bezirk": "Wilmersdorf", "tel": "030 8545065", "mail": "praxis@psychiatrie-ibrahim.de", "open": "Mo 09:00-10:00,14:00-15:00; Di 09:00-10:00; Do 09:00-10:00; Fr 09:00-10:00", "pt": true, "neuro": false, "km": 9.8, "min": 28, "lines": ["S41"], "doc": "", "docShort": "", "web": "https://www.psychiatrie-ibrahim.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "christian-widdel-10715", "name": "Christian Widdel", "street": "Uhlandstraße 101", "plz": "10715", "bezirk": "Wilmersdorf", "tel": "030 8832909", "mail": "info@praxis-widdel.de", "open": "Mo 09:00-13:00; Di 09:00-14:00; Do 15:00-19:00; Fr 09:00-13:00", "pt": true, "neuro": false, "km": 10.1, "min": 31, "lines": ["S41", "249"], "doc": "", "docShort": "", "web": "https://www.praxis-widdel.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-marek-mazan-10629", "name": "Dr. Marek Mazan", "street": "Wilmersdorfer Straße 79", "plz": "10629", "bezirk": "Charlottenburg", "tel": "030 3814490", "mail": "kontakt@praxis-mazan.de", "open": "Mo 08:30-09:30,13:15-14:15; Di 09:30-10:30,13:15-14:15; Mi 09:30-11:00,11:00-12:30; Do 08:30-09:30,13:15-14:15", "pt": true, "neuro": false, "km": 10.9, "min": 33, "lines": ["S7"], "doc": "", "docShort": "", "web": "https://www.praxis-mazan.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "hajo-noll-13088", "name": "Hajo Noll", "street": "Berliner Allee 158", "plz": "13088", "bezirk": "Weißensee", "tel": "030 92790200", "mail": "h.noll@alexius.de", "open": "Mo 09:00-11:00; Mi 12:00-13:00; Fr 09:00-11:00", "pt": false, "neuro": false, "km": 5.5, "min": 21, "lines": ["S42", "M4"], "doc": "", "docShort": "", "web": "https://www.mvz-alexianer.de", "docUrl": "", "dup": ["Dr. Dirk Pollex", "Hannes Hilgenfeld", "Nina Carlson"], "dupOtherAddr": false}, {"id": "dr-dirk-pollex-13088", "name": "Dr. Dirk Pollex", "street": "Berliner Allee 158", "plz": "13088", "bezirk": "Weißensee", "tel": "030 92790200", "mail": "MVZSt.Joseph-Weissensee@alexius.de", "open": "Mo 10:00-11:00; Di 11:00-12:00; Mi 11:00-12:00; Do 10:00-11:00", "pt": false, "neuro": false, "km": 5.5, "min": 21, "lines": ["S42", "M4"], "doc": "", "docShort": "", "web": "https://www.mvz-alexianer.de", "docUrl": "", "dup": ["Hajo Noll", "Hannes Hilgenfeld", "Nina Carlson"], "dupOtherAddr": false}, {"id": "hannes-hilgenfeld-13088", "name": "Hannes Hilgenfeld", "street": "Berliner Allee 158", "plz": "13088", "bezirk": "Weißensee", "tel": "030 92790200", "mail": "MVZSt.Joseph-Weissensee@alexius.de", "open": "Mo 08:00-09:00; Di 12:00-14:00; Do 10:00-11:00; Fr 08:00-09:00", "pt": false, "neuro": false, "km": 5.5, "min": 21, "lines": ["S42", "M4"], "doc": "", "docShort": "", "web": "https://www.mvz-alexianer.de", "docUrl": "", "dup": ["Hajo Noll", "Dr. Dirk Pollex", "Nina Carlson"], "dupOtherAddr": false}, {"id": "nina-carlson-13088", "name": "Nina Carlson", "street": "Berliner Allee 158", "plz": "13088", "bezirk": "Weißensee", "tel": "030 92790200", "mail": "MVZSt.Joseph-Weissensee@alexius.de", "open": "Di 12:30-17:30,14:00-15:00; Mi 08:00-15:00,09:00-10:00; Fr 08:00-13:00,10:00-10:30", "pt": false, "neuro": false, "km": 5.5, "min": 21, "lines": ["S42", "M4"], "doc": "", "docShort": "", "web": "https://www.mvz-alexianer.de", "docUrl": "", "dup": ["Hajo Noll", "Dr. Dirk Pollex", "Hannes Hilgenfeld"], "dupOtherAddr": false}, {"id": "stephan-peter-fruhauf-13187", "name": "Stephan Peter Frühauf", "street": "Kavalierstraße 4", "plz": "13187", "bezirk": "Pankow", "tel": "030 47538872", "mail": "anmeldung@praxis-fruehauf.net", "open": "Mo 12:30-14:00; Di 08:30-09:00; Mi 08:30-10:00; Do 08:30-10:00", "pt": true, "neuro": false, "km": 8.6, "min": 29, "lines": ["S8", "50"], "doc": "", "docShort": "", "web": "https://www.praxis-fruehauf.net", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-christiane-schmidt-12099", "name": "Dr. Christiane Schmidt", "street": "Albrechtstraße 42", "plz": "12099", "bezirk": "Tempelhof", "tel": "030 7522008", "mail": "", "open": "Mo 08:00-08:40,13:30-14:30; Di 08:00-08:40,13:30-14:30; Do 08:00-08:40,13:00-14:00", "pt": false, "neuro": false, "km": 7.4, "min": 19, "lines": ["S41", "U6"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-nikolaos-rigas-10709", "name": "Dr. Nikolaos Rigas", "street": "Paulsborner Straße 3", "plz": "10709", "bezirk": "Wilmersdorf", "tel": "030 8934526", "mail": "nrigas@aol.com", "open": "Mo 10:00-15:25,15:30-18:00; Di 10:00-15:05,15:30-18:30; Mi 10:00-15:00,15:30-18:15; Do 10:00-15:00,15:30-18:15; Fr 10:00-14:30,15:30-18:15", "pt": true, "neuro": false, "km": 11.0, "min": 36, "lines": ["S41", "U9", "U7"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "kathrin-welzel-12161", "name": "Kathrin Welzel", "street": "Bundesallee 136", "plz": "12161", "bezirk": "Steglitz/Friedenau", "tel": "030 45808800", "mail": "info@bundesplatz-praxis.de", "open": "", "pt": true, "neuro": false, "km": 10.0, "min": 24, "lines": ["S41"], "doc": "", "docShort": "", "web": "https://www.bundesplatz-praxis.de", "docUrl": "", "dup": ["Dr. Mignon Lesly Meier-Henco", "Dr. Regine Röhl"], "dupOtherAddr": false}, {"id": "dr-mignon-lesly-meier-henco-12161", "name": "Dr. Mignon Lesly Meier-Henco", "street": "Bundesallee 136", "plz": "12161", "bezirk": "Steglitz/Friedenau", "tel": "030 45808800", "mail": "info@bundesplatz-praxis.de", "open": "Mo 15:00-16:00; Do 09:00-10:30", "pt": true, "neuro": false, "km": 10.0, "min": 24, "lines": ["S41"], "doc": "", "docShort": "", "web": "https://www.bundesplatz-praxis.de", "docUrl": "", "dup": ["Kathrin Welzel", "Dr. Regine Röhl"], "dupOtherAddr": false}, {"id": "dr-regine-rohl-12161", "name": "Dr. Regine Röhl", "street": "Bundesallee 136", "plz": "12161", "bezirk": "Steglitz/Friedenau", "tel": "030 45808800", "mail": "info@bundesplatz-praxis.de", "open": "Mo 15:00-17:00,17:00-18:00; Mi 14:00-17:00", "pt": true, "neuro": false, "km": 10.0, "min": 24, "lines": ["S41"], "doc": "", "docShort": "", "web": "https://www.bundesplatz-praxis.de", "docUrl": "https://www.doctolib.de/psychiatrie-und-psychotherapie/berlin/regine-roehl", "dup": ["Kathrin Welzel", "Dr. Mignon Lesly Meier-Henco"], "dupOtherAddr": false}, {"id": "dr-nils-freundlieb-10589", "name": "Dr. Nils Freundlieb", "street": "Tegeler Weg 4", "plz": "10589", "bezirk": "Charlottenburg", "tel": "030 3442071", "mail": "", "open": "Mo 08:30-09:30; Di 08:30-09:30; Mi 08:30-10:30; Do 08:30-09:30,09:30-14:30", "pt": true, "neuro": false, "km": 11.7, "min": 37, "lines": ["S42"], "doc": "Neupatient:innen online buchbar, aktuell keine freien Slots", "docShort": "keine freien Slots", "web": "", "docUrl": "https://www.doctolib.de/psychiatrie-und-psychotherapie/berlin/nils-freundlieb", "dup": [], "dupOtherAddr": false}, {"id": "stephanie-gereke-10589", "name": "Stephanie Gereke", "street": "Tegeler Weg 4", "plz": "10589", "bezirk": "Charlottenburg", "tel": "030 34504270", "mail": "info@psychiatrie-tegeler-weg.de", "open": "Mi 08:00-13:00", "pt": true, "neuro": false, "km": 11.7, "min": 37, "lines": ["S42"], "doc": "", "docShort": "", "web": "https://www.psychiatrie-tegeler-weg.de", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "detlef-kliem-13405", "name": "Detlef Kliem", "street": "Scharnweberstraße 2", "plz": "13405", "bezirk": "Reinickendorf", "tel": "030 233239501", "mail": "info@aescuro.de", "open": "Mo 08:30-09:30; Di 08:30-09:30; Mi 08:30-09:30,09:30-12:30; Do 08:30-09:30,14:00-18:00; Fr 08:30-09:30,09:30-12:30", "pt": false, "neuro": false, "km": 11.4, "min": 30, "lines": ["S42", "U6"], "doc": "Neupatienten-Kalender noch nicht freigeschaltet", "docShort": "noch nicht offen", "web": "", "docUrl": "https://www.doctolib.de/psychiatrie-und-psychotherapie/berlin/detlef-kliem", "dup": [], "dupOtherAddr": false}, {"id": "dr-jann-schlimme-13405", "name": "Dr. Jann Schlimme", "street": "Kapweg 3", "plz": "13405", "bezirk": "Reinickendorf", "tel": "030 41747840", "mail": "dr.schlimme@gmx.de", "open": "Mi 09:00-11:30", "pt": true, "neuro": false, "km": 11.5, "min": 31, "lines": ["S42", "U6"], "doc": "nur Bestandspatient:innen online", "docShort": "nur Bestand", "web": "https://www.jannschlimme.de", "docUrl": "https://www.doctolib.de/psychiatrie-und-psychotherapie/berlin/jann-schlimme", "dup": [], "dupOtherAddr": false}, {"id": "kerstin-gericke-13055", "name": "Kerstin Gericke", "street": "Reichenberger Straße 3", "plz": "13055", "bezirk": "Hohenschönhausen", "tel": "030 9712096", "mail": "kerstin.gericke@web.de", "open": "Do 10:00-18:30; Fr 10:00-17:30", "pt": true, "neuro": false, "km": 4.3, "min": 22, "lines": ["S42", "M5"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-samuel-elstner-13055", "name": "Dr. Samuel Elstner", "street": "Reichenberger Straße 3", "plz": "13055", "bezirk": "Hohenschönhausen", "tel": "030 9714526", "mail": "praxis-elstner-mail@t-online.de", "open": "Mo 12:30-13:30; Di 12:00-13:00,13:30-14:30; Do 14:00-15:00; Fr 11:00-12:00", "pt": true, "neuro": false, "km": 4.3, "min": 22, "lines": ["S42", "M5"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "stefan-schmidt-12057", "name": "Stefan Schmidt", "street": "Karl-Marx-Straße 272", "plz": "12057", "bezirk": "Neukölln", "tel": "030 6840996", "mail": "info@neuropraxis-neukoelln.de", "open": "Mo 13:00-14:00; Di 08:30-09:30; Mi 15:00-16:00; Do 08:30-09:30; Fr 08:30-09:30", "pt": true, "neuro": false, "km": 4.6, "min": 14, "lines": ["S41", "U7"], "doc": "", "docShort": "", "web": "https://www.neuropraxis-neukoelln.de", "docUrl": "", "dup": ["Nadja Ruhbach"], "dupOtherAddr": false}, {"id": "nadja-ruhbach-12057", "name": "Nadja Ruhbach", "street": "Karl-Marx-Straße 272", "plz": "12057", "bezirk": "Neukölln", "tel": "030 6840996", "mail": "info@neuropraxis-neukoelln.de", "open": "Mo 09:00-10:00,10:00-12:00,15:00-18:00; Di 09:00-10:00,10:00-12:00,15:00-18:00; Mi 09:00-10:00,10:00-12:00,15:00-18:00; Do 09:00-10:00,10:00-12:00,15:00-18:00; Fr 09:00-10:00,10:00-12:00", "pt": false, "neuro": false, "km": 4.6, "min": 14, "lines": ["S41", "U7"], "doc": "", "docShort": "", "web": "https://www.neuropraxis-neukoelln.de", "docUrl": "", "dup": ["Stefan Schmidt"], "dupOtherAddr": false}, {"id": "ehet-yenice-12159", "name": "Ehet Yenice", "street": "Rheinstraße 56", "plz": "12159", "bezirk": "Steglitz/Friedenau", "tel": "030 2161043", "mail": "", "open": "Mo 08:30-09:30,09:30-13:30; Di 08:30-09:30,09:30-13:30; Mi 08:30-09:30,09:30-13:30; Do 08:30-09:30,09:30-13:30; Fr 08:30-09:30,09:30-13:30", "pt": true, "neuro": false, "km": 9.9, "min": 31, "lines": ["S41", "U9"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": ["Dr. Ewa Noutsias"], "dupOtherAddr": true}, {"id": "robert-lorenz-12157", "name": "Robert Lorenz", "street": "Rubensstraße 119", "plz": "12157", "bezirk": "Steglitz/Friedenau", "tel": "030 7201100", "mail": "", "open": "Mo 08:30-09:15; Di 08:30-09:15; Mi 08:30-09:15; Do 08:30-09:15; Fr 08:30-09:15", "pt": true, "neuro": false, "km": 9.5, "min": 29, "lines": ["S41", "143"], "doc": "", "docShort": "", "web": "https://policum.berlin", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-eva-palos-pfander-10711", "name": "Dr. Eva Palos-Pfänder", "street": "Hektorstraße 12", "plz": "10711", "bezirk": "Wilmersdorf", "tel": "030 31808861", "mail": "palos-pfaender@t-online.de", "open": "Mo 09:00-14:00; Mi 09:00-14:00; Do 15:00-18:00", "pt": true, "neuro": false, "km": 11.6, "min": 37, "lines": ["S41", "M29"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "ines-neuschulz-13403", "name": "Ines Neuschulz", "street": "Ollenhauerstraße 3", "plz": "13403", "bezirk": "Reinickendorf", "tel": "030 4964076", "mail": "", "open": "Mo 09:00-10:00,10:00-15:00; Di 12:00-13:00,13:00-19:00; Mi 09:00-15:00; Do 13:00-15:00,15:00-19:00; Fr 09:00-10:00,10:00-14:00", "pt": true, "neuro": false, "km": 11.7, "min": 30, "lines": ["S42", "U6"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-maren-jaedtke-12099", "name": "Dr. Maren Jaedtke", "street": "Tempelhofer Damm 227", "plz": "12099", "bezirk": "Tempelhof", "tel": "030 7513632", "mail": "", "open": "Do 08:00-13:00", "pt": false, "neuro": false, "km": 7.7, "min": 25, "lines": ["S41", "U6"], "doc": "", "docShort": "", "web": "", "docUrl": "", "dup": [], "dupOtherAddr": false}, {"id": "dr-ewa-noutsias-12099", "name": "Dr. Ewa Noutsias", "street": "Tempelhofer Damm 227", "plz": "12099", "bezirk": "Tempelhof", "tel": "030 2161043", "mail": "info@praxis-noutsias.de", "open": "Mo 08:00-08:30,13:30-14:00; Di 08:00-08:30,08:30-13:30,13:30-14:00; Mi 08:00-08:30,08:30-13:30,13:30-14:00; Do 08:00-08:30,08:30-13:30,13:30-14:00; Fr 08:00-08:30,08:30-13:30,13:30-14:00", "pt": true, "neuro": false, "km": 7.7, "min": 25, "lines": ["S41", "U6"], "doc": "Neupatient:innen nicht online buchbar", "docShort": "nicht online", "web": "", "docUrl": "https://www.doctolib.de/psychiatrie-und-psychotherapie/berlin/ewa-noutsias", "dup": ["Ehet Yenice"], "dupOtherAddr": true}, {"id": "dr-andreas-gregor-10711", "name": "Dr. Andreas Gregor", "street": "Kurfürstendamm 137", "plz": "10711", "bezirk": "Wilmersdorf", "tel": "030 68833353", "mail": "", "open": "Mo 09:00-19:00; Di 09:00-19:00; Mi 09:00-19:00; Do 09:00-19:00; Fr 09:00-16:00", "pt": true, "neuro": false, "km": 11.8, "min": 32, "lines": ["S41"], "doc": "", "docShort": "", "web": "https://www.praxisgregor.de", "docUrl": "", "dup": [], "dupOtherAddr": false}];
+const USE_DB = false;
+const RESULTS = [
+  ["", "Ergebnis …"], ["nicht", "Nicht erreicht"], ["ab", "Anrufbeantworter"], ["rueck", "Rückruf vereinbart"],
+  ["warte", "Warteliste"], ["kein", "Keine Neuaufnahme"], ["termin", "Termin bekommen"]
+];
+const DAYS = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+const today = DAYS[new Date().getDay()];
+let state = {};          // id -> {calls:[iso,...], result, note}
+let db = null, col = null;
+let sort = {key:"min", dir:1};
+let st = "all";
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmtD = iso => { if(!iso) return ""; const d = new Date(iso); return d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"}); };
+function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("on"); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove("on"),1600); }
+function initials(n){ const p=n.replace(/^(Prof\.|Dr\.|PD|med\.)\s*/g,"").replace(/Dr\.\s*/g,"").trim().split(/\s+/); return ((p[0]||"")[0]+(p[p.length-1]||"")[0]).toUpperCase(); }
+function lineCls(l){ return /^S/.test(l)?"s":/^U/.test(l)?"u":/^(M|\d{2}$)/.test(l)&&!/^M?\d{3}/.test(l)?"t":"b"; }
+function todayHours(d){ const m=(d.open||"").split(";").map(s=>s.trim()).find(s=>s.startsWith(today+" ")); return m? m.slice(3):""; }
+
+// ---------- e-mail template (personal fields stay in this browser only) ----------
+const MF = ["mfName","mfBirth","mfKasse","mfTel","mfTimes","mfUeb"];
+function mfLoad(){ try{ const v=JSON.parse(localStorage.getItem("psy-mailfields")||"{}"); MF.forEach(k=>{ const el=$("#"+k); if(!el||v[k]==null) return; if(el.type==="checkbox") el.checked=!!v[k]; else el.value=v[k]; }); }catch(e){} }
+function mfSave(){ try{ const v={}; MF.forEach(k=>{ const el=$("#"+k); v[k]= el.type==="checkbox"? el.checked : el.value; }); localStorage.setItem("psy-mailfields", JSON.stringify(v)); }catch(e){} }
+function mfVal(k, fb){ const el=$("#"+k); const v = el ? (el.type==="checkbox"? el.checked : el.value.trim()) : ""; return v || fb; }
+function mailSubject(){ return "Anfrage Ersttermin – neue Patientin / neuer Patient (gesetzlich versichert)"; }
+function mailBody(){
+  const name=mfVal("mfName","[Dein Name]"), kasse=mfVal("mfKasse","[Krankenkasse]"), tel=mfVal("mfTel","[Telefonnummer]");
+  const birth=mfVal("mfBirth",""), times=mfVal("mfTimes",""), ueb=mfVal("mfUeb",false);
+  return [
+    "Sehr geehrtes Praxisteam,",
+    "",
+    "ich suche einen Termin für ein psychiatrisches Erstgespräch und möchte fragen, ob Sie derzeit neue Patientinnen und Patienten aufnehmen.",
+    "",
+    `Ich bin gesetzlich versichert bei der ${kasse}.` + (ueb ? " Eine Überweisung mit Vermittlungscode liegt vor." : ""),
+    "",
+    "Zeitlich bin ich flexibel und kann auch kurzfristig einen frei gewordenen Termin übernehmen. Falls gerade kein Termin frei ist, setzen Sie mich gern auf Ihre Warteliste.",
+    "",
+    `Sie erreichen mich unter ${tel}` + (times ? ` (${times})` : "") + " oder per E-Mail.",
+    "",
+    "Vielen Dank und freundliche Grüße",
+    name + (birth ? `\ngeb. ${birth}` : "")
+  ].join("\n");
+}
+function mailHref(d){ return "mailto:" + encodeURIComponent(d.mail).replace(/%40/g,"@") + "?subject=" + encodeURIComponent(mailSubject()) + "&body=" + encodeURIComponent(mailBody()); }
+function gmailHref(d){ return "https://mail.google.com/mail/?view=cm&fs=1&to=" + encodeURIComponent(d.mail) + "&su=" + encodeURIComponent(mailSubject()) + "&body=" + encodeURIComponent(mailBody()); }
+function outlookHref(d){ return "https://outlook.live.com/mail/0/deeplink/compose?to=" + encodeURIComponent(d.mail) + "&subject=" + encodeURIComponent(mailSubject()) + "&body=" + encodeURIComponent(mailBody()); }
+function mbRender(){ $("#mbSubj").textContent = mailSubject(); $("#mbBody").textContent = mailBody(); }
+async function copyText(t, msg){ try{ await navigator.clipboard.writeText(t); toast(msg); }catch(_){ toast("Kopieren hier nicht möglich, Text bitte markieren"); } }
+mfLoad(); mbRender();
+MF.forEach(k=>$("#"+k).addEventListener("input", ()=>{ mfSave(); mbRender(); document.querySelectorAll("[data-mail]").forEach(a=>{ const d=DATA.find(x=>x.id===a.dataset.mail); if(d) a.href=mailHref(d); }); document.querySelectorAll("[data-gmail]").forEach(a=>{ const d=DATA.find(x=>x.id===a.dataset.gmail); if(d) a.href=gmailHref(d); }); document.querySelectorAll("[data-outlook]").forEach(a=>{ const d=DATA.find(x=>x.id===a.dataset.outlook); if(d) a.href=outlookHref(d); }); }));
+$("#mbCopy").addEventListener("click", ()=>copyText("Betreff: "+mailSubject()+"\n\n"+mailBody(), "Mail-Text kopiert"));
+
+// ---------- local fallback ----------
+function loadLocal(){ try{ return JSON.parse(localStorage.getItem("psy-calls")||"{}"); }catch(e){ return {}; } }
+function saveLocal(){ try{ localStorage.setItem("psy-calls", JSON.stringify(state)); }catch(e){} }
+
+function setSync(kind, txt){ $("#syncDot").className="dot "+(kind||""); $("#syncTxt").textContent=txt; }
+
+async function persist(id){
+  const s = state[id] || {calls:[],result:"",note:""};
+  saveLocal();
+  if(!col) return;
+  try{ await col.doc(id).set({calls:s.calls, result:s.result||"", note:s.note||"", updated:new Date().toISOString()}); setSync("ok","Gespeichert"); }
+  catch(e){ setSync("warn", e.code==="invalid_argument" ? "Nur lesen: keine Schreibrechte" : "Nicht gespeichert, bitte erneut klicken"); }
+}
+
+// ---------- rendering ----------
+function filtered(){
+  const q = $("#q").value.trim().toLowerCase();
+  const max = +$("#maxMin").value;
+  const tOnly = $("#todayOnly").checked, mOnly = $("#mailOnly").checked;
+  let r = DATA.filter(d=>{
+    const s = state[d.id]; const n = s?.calls?.length||0; const res = s?.result||"";
+    if(st==="open" && n>0) return false;
+    if(st==="active" && (n===0 || res==="termin" || res==="warte")) return false;
+    if(st==="win" && !(res==="termin"||res==="warte")) return false;
+    if(q && !(d.name+" "+d.street+" "+d.plz+" "+d.bezirk).toLowerCase().includes(q)) return false;
+    if(max<999 && !(d.min!=null && d.min<=max)) return false;
+    if(tOnly && !todayHours(d)) return false;
+    if(mOnly && !d.mail) return false;
+    return true;
+  });
+  const k = sort.key, dir = sort.dir;
+  r.sort((a,b)=>{
+    let va, vb;
+    if(k==="name"){ va=a.name.replace(/^(Herr|Frau|Dr\.|Prof\.)\s*/g,""); vb=b.name.replace(/^(Herr|Frau|Dr\.|Prof\.)\s*/g,""); return va.localeCompare(vb,"de")*dir; }
+    if(k==="calls"){ va=state[a.id]?.calls?.length||0; vb=state[b.id]?.calls?.length||0; }
+    else if(k==="km"){ va=a.km??999; vb=b.km??999; }
+    else { va=a.min??999; vb=b.min??999; }
+    return (va-vb)*dir || (a.km-b.km);
+  });
+  return r;
+}
+
+function rowHTML(d){
+  const s = state[d.id] || {calls:[]}; const n = s.calls?.length||0;
+  const th = todayHours(d);
+  const days = (d.open||"").split(";").map(x=>x.trim()).filter(Boolean);
+  const hours = days.length ? days.map(x=>`<div class="${x.startsWith(today+" ")?"today":""}">${esc(x)}</div>`).join("") : `<div class="none">keine offene Sprechstunde gemeldet</div>`;
+  const lines = (d.lines||[]).map(l=>`<span class="ln ${lineCls(l)}">${esc(l)}</span>`).join("");
+  const res = s.result||"";
+  const rc = res==="termin"?"r-termin":res==="kein"?"r-kein":(res==="warte"||res==="rueck")?"r-warte":"";
+  return `<div class="row ${res==="termin"||res==="warte"?"done":n?"called":""}" role="row" data-id="${d.id}">
+    <div class="who">
+      <div class="av" aria-hidden="true">${d.img?`<img src="${esc(d.img)}" alt="">`:esc(initials(d.name))}</div>
+      <div style="min-width:0">
+        <div class="name">${esc(d.name)}</div>
+        <div class="meta">${esc(d.street)}, ${esc(d.plz)} · ${esc(d.bezirk)}</div>
+        <div class="tags">${d.pt?'<span class="tag">+ Psychotherapie</span>':''}${d.neuro?'<span class="tag">Nervenarzt</span>':''}${th?`<span class="tag acc">heute offen ${esc(th.split(",")[0])}</span>`:''}${d.doc?`<span class="tag ${/keine freien|nicht online|nur Bestand|noch nicht/.test(d.doc)?"neg":""}" title="${esc(d.doc)}">Doctolib: ${esc(d.docShort)}</span>`:''}</div>
+      </div>
+    </div>
+    <div class="contact">
+      <span class="lbl">Kontakt</span>
+      ${d.tel?`<div class="cl"><span class="t num">${esc(d.tel)}</span></div>${(d.dup||[]).length?`<div class="dupnote ${d.dupOtherAddr?"warn":""}">${d.dupOtherAddr?"⚠ Gleiche Nummer, andere Adresse":"Gleiche Nummer"} wie ${esc(d.dup.join(", "))}${d.dupOtherAddr?". Beim Anruf nachfragen.":". Ein Anruf reicht für alle."}</div>`:""}<div class="mailact"><a class="btn call" href="tel:${esc(d.tel.replace(/\s/g,""))}">Anrufen</a><button type="button" class="btn" data-copy="${esc(d.tel)}">Nummer kopieren</button></div>`:'<div class="cl meta">keine Telefonnummer</div>'}
+      ${d.mail?`<div class="cl"><a href="mailto:${esc(d.mail)}">${esc(d.mail)}</a><button type="button" class="copy" data-copy="${esc(d.mail)}">kopieren</button></div>`:'<div class="cl meta">keine E-Mail</div>'}
+      ${d.mail?`<div class="mailact"><a class="btn mailbtn" data-outlook="${d.id}" href="${esc(outlookHref(d))}" target="_blank" rel="noopener">In Outlook öffnen</a><a class="btn" data-gmail="${d.id}" href="${esc(gmailHref(d))}" target="_blank" rel="noopener">Gmail</a><a class="btn" data-mail="${d.id}" href="${esc(mailHref(d))}" target="_blank" rel="noopener">Mail-App</a><button type="button" class="btn" data-mailcopy="${d.id}">Text kopieren</button></div>`:''}
+      <div class="links">${d.web?`<a href="${esc(d.web)}" target="_blank" rel="noopener">Website ↗</a>`:'<span class="meta">keine Website</span>'}${d.docUrl?`<a href="${esc(d.docUrl)}" target="_blank" rel="noopener" class="doclink">Doctolib ↗</a>`:''}</div>
+    </div>
+    <div class="trip">
+      <span class="lbl">ab Ostkreuz</span>
+      <div class="big">${d.min!=null?`${d.min} <small>Min</small>`:'– <small>Min</small>'} <small>· ${d.km!=null?d.km.toLocaleString("de-DE",{maximumFractionDigits:1})+" km":"–"}</small></div>
+      <div class="lines">${lines||'<span class="meta">Verbindung nicht ermittelt</span>'}</div>
+    </div>
+    <div class="hours"><span class="lbl">Ohne Termin (diese Woche)</span>${hours}</div>
+    <div class="calls">
+      <span class="lbl">Anrufe &amp; Ergebnis</span>
+      <div class="steps" role="group" aria-label="Anrufe">
+        ${[1,2,3].map(i=>`<button type="button" class="step" data-step="${i}" aria-pressed="${n>=i}" aria-label="${i}. Anruf">${i}.<small>${n>=i?fmtD(s.calls[i-1]):"Anruf"}</small></button>`).join("")}
+      </div>
+      <div class="res">
+        <select class="${rc}" data-res aria-label="Ergebnis" id="res-${d.id}">${RESULTS.map(([v,t])=>`<option value="${v}" ${v===res?"selected":""}>${t}</option>`).join("")}</select>
+        <input type="text" data-note placeholder="Notiz" value="${esc(s.note||"")}" aria-label="Notiz" id="note-${d.id}">
+      </div>
+    </div>
+  </div>`;
+}
+
+function render(){
+  const r = filtered();
+  $("#list").innerHTML = r.length ? r.map(rowHTML).join("") : `<div class="empty">Keine Praxis passt zu diesen Filtern.</div>`;
+  $("#count").textContent = `${r.length} von ${DATA.length} Praxen`;
+  kpis();
+}
+function kpis(){
+  const tot = DATA.length;
+  const called = DATA.filter(d=>state[d.id]?.calls?.length).length;
+  const attempts = DATA.reduce((a,d)=>a+(state[d.id]?.calls?.length||0),0);
+  const win = DATA.filter(d=>["termin","warte"].includes(state[d.id]?.result)).length;
+  const termin = DATA.filter(d=>state[d.id]?.result==="termin").length;
+  const open = DATA.filter(d=>todayHours(d)).length;
+  // calls today vs yesterday
+  const dayKey = x => new Date(x).toDateString();
+  const t0 = new Date(); const y0 = new Date(Date.now()-864e5);
+  let ct=0, cy=0; DATA.forEach(d=>(state[d.id]?.calls||[]).forEach(c=>{ if(dayKey(c)===t0.toDateString()) ct++; else if(dayKey(c)===y0.toDateString()) cy++; }));
+  $("#kTotal").textContent = tot;
+  const nums = new Set(DATA.filter(d=>d.tel).map(d=>d.tel.replace(/\D/g,"")));
+  $("#kTotalD").textContent = `${nums.size} verschiedene Nummern · ${DATA.filter(d=>d.mail).length} mit E-Mail`;
+  $("#kCalled").textContent = called;
+  $("#kCalledD").textContent = `${(called/tot*100).toLocaleString("de-DE",{maximumFractionDigits:1})} % der Liste`;
+  $("#kCalledBar").style.width = (called/tot*100)+"%";
+  $("#kAttempts").textContent = attempts;
+  const diff = cy ? Math.round((ct-cy)/cy*100) : null;
+  $("#kAttemptsD").innerHTML = `heute ${ct}` + (diff!=null?` · <span class="${diff>=0?"up":""}">${diff>=0?"▲":"▼"} ${Math.abs(diff)} %</span> ggü. gestern`:` · gestern ${cy}`);
+  $("#kWin").textContent = win;
+  $("#kWinD").textContent = `${termin} Termin, ${win-termin} Warteliste`;
+  $("#kOpen").textContent = open;
+  $("#kOpenD").textContent = `Praxen ohne Termin, ${({Mo:"Montag",Di:"Dienstag",Mi:"Mittwoch",Do:"Donnerstag",Fr:"Freitag",Sa:"Samstag",So:"Sonntag"})[today]}`;
+}
+
+// ---------- events ----------
+$("#list").addEventListener("click", async e=>{
+  const cp = e.target.closest("[data-copy]");
+  if(cp){ const v=cp.dataset.copy; try{ await navigator.clipboard.writeText(v); toast("Kopiert: "+v); }catch(_){ toast(v); } return; }
+  const mc = e.target.closest("[data-mailcopy]");
+  if(mc){ const d=DATA.find(x=>x.id===mc.dataset.mailcopy); copyText("An: "+d.mail+"\nBetreff: "+mailSubject()+"\n\n"+mailBody(), "Mail-Text für "+d.mail+" kopiert"); return; }
+  const b = e.target.closest(".step"); if(!b) return;
+  const id = b.closest(".row").dataset.id; const i = +b.dataset.step;
+  const s = state[id] = state[id] ? {...state[id], calls:[...(state[id].calls||[])]} : {calls:[],result:"",note:""};
+  if(s.calls.length >= i) s.calls = s.calls.slice(0, i-1);           // undo back to before this step
+  else { while(s.calls.length < i) s.calls.push(new Date().toISOString()); }
+  render(); persist(id);
+});
+$("#list").addEventListener("change", e=>{
+  const row = e.target.closest(".row"); if(!row) return; const id=row.dataset.id;
+  const s = state[id] = state[id] ? {...state[id]} : {calls:[],result:"",note:""};
+  if(e.target.matches("[data-res]")){ s.result=e.target.value; if(s.result && !(s.calls||[]).length) s.calls=[new Date().toISOString()]; render(); persist(id); }
+  if(e.target.matches("[data-note]")){ s.note=e.target.value.slice(0,300); persist(id); }
+});
+document.querySelectorAll(".seg button").forEach(b=>b.addEventListener("click",()=>{
+  st=b.dataset.st; document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed", x===b)); render();
+}));
+document.querySelectorAll(".head button").forEach(b=>b.addEventListener("click",()=>{
+  const k=b.dataset.sort; sort = {key:k, dir: sort.key===k ? -sort.dir : 1};
+  document.querySelectorAll(".head button").forEach(x=>{ x.removeAttribute("aria-sort"); x.textContent=x.textContent.replace(/ [↑↓]$/,""); });
+  b.setAttribute("aria-sort", sort.dir>0?"ascending":"descending"); b.textContent += sort.dir>0?" ↑":" ↓";
+  const v = k+":"+sort.dir; if([...$("#sortSel").options].some(o=>o.value===v)) $("#sortSel").value = v;
+  render();
+}));
+$("#sortSel").addEventListener("change", e=>{
+  const [k,d] = e.target.value.split(":"); sort = {key:k, dir:+d};
+  document.querySelectorAll(".head button").forEach(x=>{ x.removeAttribute("aria-sort"); x.textContent=x.textContent.replace(/ [↑↓]$/,""); });
+  const hb = document.querySelector(`.head button[data-sort="${k==="km"?"min":k}"]`);
+  if(hb){ hb.setAttribute("aria-sort", sort.dir>0?"ascending":"descending"); hb.textContent += sort.dir>0?" ↑":" ↓"; }
+  render();
+});
+["q","maxMin","todayOnly","mailOnly"].forEach(id=>$("#"+id).addEventListener("input",render));
+$("#csv").addEventListener("click", async ()=>{
+  const cols=["Name","Straße","PLZ","Bezirk","Telefon","E-Mail","ÖPNV ab Ostkreuz (Min)","Luftlinie (km)","Linien","Ohne Termin","Anrufe","Letzter Anruf","Ergebnis","Notiz"];
+  const rows=filtered().map(d=>{ const s=state[d.id]||{calls:[]}; return [d.name,d.street,d.plz,d.bezirk,d.tel,d.mail,d.min??"",d.km!=null?String(d.km).replace(".",","):"",(d.lines||[]).join(" "),d.open,(s.calls||[]).length,fmtD((s.calls||[]).slice(-1)[0]),(RESULTS.find(r=>r[0]===s.result)||["",""])[1].replace("Ergebnis …",""),s.note||""]; });
+  const csv="﻿"+[cols,...rows].map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(";")).join("\r\n");
+  try{ await saveFile("psychiater-anrufliste.csv", csv, "text/csv"); }catch(e){ toast("Export abgebrochen"); }
+});
+
+// ---------- backup ----------
+async function saveFile(name, text, type){
+  const dl = window.claude ? await claude.use("downloads") : null;
+  if(dl){ await dl.save({filename:name, data:new Blob([text],{type})}); return; }
+  const url = URL.createObjectURL(new Blob([text],{type}));
+  const a = document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+$("#bkSave").addEventListener("click", async ()=>{
+  const n = Object.values(state).filter(s=>(s.calls||[]).length||s.result||s.note).length;
+  const d = new Date(); const stamp = d.toISOString().slice(0,10);
+  try{ await saveFile(`psychiater-anrufe-${stamp}.json`, JSON.stringify({app:"psychiater-anrufliste",version:1,exported:d.toISOString(),state},null,1), "application/json"); toast(`Gesichert: ${n} Praxen mit Einträgen`); }
+  catch(e){ toast("Sichern abgebrochen"); }
+});
+$("#bkLoad").addEventListener("click", ()=>$("#bkFile").click());
+$("#bkFile").addEventListener("change", async e=>{
+  const f = e.target.files[0]; e.target.value=""; if(!f) return;
+  let obj; try{ obj = JSON.parse(await f.text()); }catch(_){ toast("Datei ist keine gültige Sicherung"); return; }
+  const imp = obj && obj.app==="psychiater-anrufliste" ? obj.state : null;
+  if(!imp || typeof imp!=="object"){ toast("Datei ist keine Sicherung dieser Liste"); return; }
+  const ids = new Set(DATA.map(d=>d.id)); const changed=[];
+  for(const [id,v] of Object.entries(imp)){
+    if(!ids.has(id) || !v) continue;
+    const s = {calls:Array.isArray(v.calls)?v.calls.slice(0,3).map(String):[], result:String(v.result||""), note:String(v.note||"").slice(0,300)};
+    const cur = state[id];
+    if(!cur || JSON.stringify(cur)!==JSON.stringify(s)){ state[id]=s; changed.push(id); }
+  }
+  saveLocal(); render();
+  for(const id of changed){ await persist(id); }
+  toast(`Geladen: ${changed.length} ${changed.length===1?"Praxis":"Praxen"} aktualisiert`);
+});
+
+// ---------- boot ----------
+if(!USE_DB) $("#saveHint").hidden = false;
+state = loadLocal();
+render();
+(async ()=>{
+  if(!window.claude || !USE_DB){ setSync("warn","Im Browser gespeichert. Ab und zu „Stand sichern“ klicken."); return; }
+  db = await claude.use("db");
+  if(!db){ setSync("warn","Im Browser gespeichert. Ab und zu „Stand sichern“ klicken."); return; }
+  col = db.collection("calls");
+  const timer = setTimeout(()=>setSync("warn","Speicher antwortet nicht, lokal gesichert"),10000);
+  col.onSnapshot(snap=>{
+    if(!snap.metadata.fromCache){ clearTimeout(timer); setSync("ok","Synchronisiert"); }
+    const next = {...state};
+    snap.docs.forEach(d=>{ const v=d.data(); if(v) next[d.id]={calls:Array.isArray(v.calls)?v.calls:[],result:v.result||"",note:v.note||""}; });
+    const active = document.activeElement;
+    const typing = active && active.matches && active.matches("[data-note]");
+    state = next; saveLocal();
+    if(!typing) render(); else kpis();
+  }, err=>{ clearTimeout(timer); setSync("warn","Sync unterbrochen, lokal gesichert"); });
+})();
+</script>
+</body></html>
